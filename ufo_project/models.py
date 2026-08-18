@@ -74,6 +74,15 @@ def _dense_counts(vectorizer: CountVectorizer, texts) -> torch.Tensor:
     return torch.tensor(vectorizer.transform(texts).toarray(), dtype=torch.float32)
 
 
+def predict_torch(result: ClassifierResult, texts) -> np.ndarray:
+    model = result.model
+    assert isinstance(model, nn.Module)
+    model.eval()
+    x = _dense_counts(result.vectorizer, texts)
+    with torch.no_grad():
+        return model(x).argmax(dim=1).numpy()
+
+
 def train_torch_bow(split, *, epochs: int = 8, batch_size: int = 128, max_features: int = 6000) -> ClassifierResult:
     started = time.perf_counter()
     vectorizer = CountVectorizer(max_features=max_features, ngram_range=(1, 2), min_df=2)

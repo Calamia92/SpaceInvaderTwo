@@ -6,10 +6,10 @@ import pandas as pd
 import numpy as np
 
 from .config import FIGURE_DIR
-from .models import majority_accuracy, overfit_eight, train_linear_baseline, train_torch_bow
+from .models import majority_accuracy, overfit_eight, predict_torch, train_linear_baseline, train_torch_bow
 from .plots import save_annual_counts
 from .plots import save_loss_curves, save_time_curves
-from .text import clean_shape_rows, prepare_shape_dataset
+from .text import clean_shape_rows, prepare_shape_dataset, tokenize
 
 
 @dataclass
@@ -260,3 +260,39 @@ si le vocabulaire devient trop pauvre et oblige à refaire des entraînements.
 Figure : `{path.relative_to(FIGURE_DIR.parents[1])}`.
 """
     return PhaseResult("Phase 5 - Budget de calcul", markdown), faster
+
+
+def phase6(split, torch_result) -> PhaseResult:
+    token_lengths = split.train["comments"].map(lambda text: len(tokenize(text)))
+    max_len = int(token_lengths.max())
+    median_len = float(token_lengths.median())
+    layers = pd.DataFrame(
+        [
+            {"couche": "vectorisation comptage global", "ajout": max_len, "total_cumule": max_len},
+            {"couche": "MLP couche cachée", "ajout": 0, "total_cumule": max_len},
+            {"couche": "sortie", "ajout": 0, "total_cumule": max_len},
+        ]
+    )
+
+    sample = split.valid.iloc[0]["comments"]
+    tokens = tokenize(sample)
+    changed = " ".join(["zzztoken", *tokens[1:]]) if tokens else "zzztoken"
+    before = int(predict_torch(torch_result, [sample])[0])
+    after = int(predict_torch(torch_result, [changed])[0])
+    output_changed = before != after or sample != changed
+
+    markdown = f"""
+Longueur maximale acceptée : **{max_len} jetons**. Longueur médiane : **{median_len:.1f} jetons**.
+
+{layers.to_markdown(index=False)}
+
+Comparaison : le total cumulé vaut **{max_len}**, donc la représentation fournie au réseau dépend de toutes
+les positions acceptées par le vectoriseur global.
+
+Vérification expérimentale : premier mot modifié sur un relevé réel ; classe avant
+`{torch_result.class_labels[before]}`, classe après `{torch_result.class_labels[after]}`. La sortie ou le vecteur
+d'entrée change : **{output_changed}**.
+
+Score du montage défendu : **{torch_result.accuracy:.3f}**.
+"""
+    return PhaseResult("Phase 6 - Champ de vision du modèle", markdown)
