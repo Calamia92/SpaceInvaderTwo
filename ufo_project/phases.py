@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import pandas as pd
 import numpy as np
@@ -9,7 +9,14 @@ from .config import FIGURE_DIR
 from .models import majority_accuracy, overfit_eight, predict_torch, train_linear_baseline, train_torch_bow
 from .plots import save_annual_counts
 from .plots import save_loss_curves, save_time_curves
-from .text import clean_shape_rows, prepare_shape_dataset, tokenize
+from .text import (
+    banned_shape_words,
+    clean_shape_rows,
+    count_rows_with_banned_words,
+    prepare_shape_dataset,
+    remove_banned_words,
+    tokenize,
+)
 
 
 @dataclass
@@ -344,3 +351,53 @@ de lot ; la correction supprime cette dépendance.
 Figure : `{path.relative_to(FIGURE_DIR.parents[1])}`.
 """
     return PhaseResult("Phase 7 - Quatre relevés à la fois", markdown)
+
+
+def phase8(split, before_result):
+    banned = banned_shape_words(split.classes)
+    cleaned_split = replace(split)
+    for frame_name in ["train", "valid", "test"]:
+        frame = getattr(cleaned_split, frame_name).copy()
+        frame["comments"] = frame["comments"].map(lambda text: remove_banned_words(text, banned))
+        setattr(cleaned_split, frame_name, frame)
+
+    checked_texts = cleaned_split.train["comments"].tolist() + cleaned_split.valid["comments"].tolist()
+    remaining = count_rows_with_banned_words(checked_texts, banned)
+    after = train_torch_bow(cleaned_split, epochs=5, batch_size=256, max_features=3500)
+
+    before_pred_ids = predict_torch(before_result, split.valid["comments"])
+    after_pred_ids = predict_torch(after, cleaned_split.valid["comments"])
+    before_labels = np.array([before_result.class_labels[index] for index in before_pred_ids])
+    after_labels = np.array([after.class_labels[index] for index in after_pred_ids])
+    true = split.valid["shape"].to_numpy()
+
+    per_class = []
+    for label in split.classes:
+        mask = true == label
+        per_class.append(
+            {
+                "classe": label,
+                "avant": float((before_labels[mask] == label).mean()),
+                "après": float((after_labels[mask] == label).mean()),
+                "chute": float((before_labels[mask] == label).mean() - (after_labels[mask] == label).mean()),
+            }
+        )
+    per_class_df = pd.DataFrame(per_class).sort_values("chute", ascending=False).head(8)
+
+    markdown = f"""
+Mots interdits : `{', '.join(sorted(banned))}`.
+
+Compte de relevés contenant encore un mot interdit après traitement : **{remaining}**.
+
+Score avant interdiction : **{before_result.accuracy:.3f}**. Score après interdiction :
+**{after.accuracy:.3f}**. Chute brute : **{before_result.accuracy - after.accuracy:.3f}**.
+
+Score par classe, classes les plus touchées :
+
+{per_class_df.to_markdown(index=False)}
+
+La moyenne micro chute surtout si une grosse classe perd un raccourci lexical fréquent. La moyenne macro
+est plus sévère pour les petites classes : elle rend visibles les effondrements locaux que le score global peut
+masquer.
+"""
+    return PhaseResult("Phase 8 - Interdire le vocabulaire des formes", markdown), cleaned_split, after

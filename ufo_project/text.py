@@ -82,3 +82,31 @@ def prepare_shape_dataset(
         kept_rows=len(work),
         decisions=decisions,
     )
+
+
+def banned_shape_words(classes: list[str]) -> set[str]:
+    words: set[str] = set()
+    for label in classes:
+        for token in tokenize(label):
+            words.add(token)
+            words.add(f"{token}s")
+            if token.endswith("y"):
+                words.add(f"{token[:-1]}ies")
+    for source, target in SHAPE_MERGES.items():
+        for token in [source, target]:
+            words.add(token)
+            words.add(f"{token}s")
+    words.update({"disc", "discs", "disk", "disks", "circular", "triangular", "sphere", "spheres"})
+    return words
+
+
+def remove_banned_words(text: str, banned: set[str]) -> str:
+    return " ".join("[FORME]" if token in banned else token for token in tokenize(text))
+
+
+def count_rows_with_banned_words(texts, banned: set[str]) -> int:
+    total = 0
+    for text in texts:
+        if any(token in banned for token in tokenize(text)):
+            total += 1
+    return total
