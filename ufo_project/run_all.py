@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from .config import FIGURE_DIR, OUTPUT_DIR, REPORT_PATH
 from .data import load_reports
-from .phases import phase0
+from .phases import phase0, phase1
 from .report import Report
 
 
@@ -12,7 +12,7 @@ def main() -> None:
 
     df = load_reports()
     report = Report("Le Bureau d'Analyse Terrestre - Rapport")
-    for result in [phase0(df)]:
+    for result in [phase0(df), phase1(df)]:
         report.add(result.heading, result.markdown)
         print(f"[ok] {result.heading}")
     report.write(REPORT_PATH)

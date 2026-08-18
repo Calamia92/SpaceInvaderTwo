@@ -75,3 +75,41 @@ Dix journées les plus chargées :
 {top10_md}
 """
     return PhaseResult("Phase 0 - Refaire les calculs du disparu", markdown)
+
+
+def _sample_report(df: pd.DataFrame, keyword: str, offset: int = 0) -> pd.Series:
+    candidates = df[df["comments"].str.contains(keyword, case=False, regex=False, na=False)]
+    candidates = candidates[candidates["comments"].str.len() > 40]
+    if candidates.empty:
+        candidates = df[df["comments"].str.len() > 40]
+    return candidates.iloc[min(offset, len(candidates) - 1)]
+
+
+def phase1(df: pd.DataFrame) -> PhaseResult:
+    examples = [
+        _sample_report(df, "firework", 0),
+        _sample_report(df, "sound", 2),
+        _sample_report(df, "triangle", 4),
+    ]
+    lines = []
+    for row in examples:
+        observed = row["observed_at"].date() if pd.notna(row["observed_at"]) else "date inconnue"
+        shape = row["shape"] or "vide"
+        lines.append(f"- `{observed}` / forme `{shape}` : {row['comments']}")
+
+    markdown = f"""
+Le chiffre du 4 juillet disait réellement qu'un volume inhabituel de relevés est associé à cette date. Il ne
+disait pas que tous les témoins avaient vu la même chose, ni que la population ignorerait une flotte. Le même
+chiffre autorise aussi une explication par le nombre de personnes dehors, par les feux d'artifice, ou par un
+biais de déclaration sur une date facile à mémoriser.
+
+Trois relevés recopiés depuis la transmission, choisis pour montrer ce qu'un comptage ne voit pas :
+
+{chr(10).join(lines)}
+
+Commande passée au système : **entrée** : le texte `comments` écrit par un témoin ; **sortie** : la forme
+`shape` normalisée. La question que le système doit trancher est : *quelle forme observée est décrite par ce
+témoignage ?* Un comptage de dates ne peut pas répondre à cette question, parce qu'il ne lit jamais les mots
+des témoins.
+"""
+    return PhaseResult("Phase 1 - Le chiffre était vrai, la flotte est perdue", markdown)
