@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from .config import FIGURE_DIR, OUTPUT_DIR, REPORT_PATH
 from .data import load_reports
-from .phases import phase0, phase1, phase2, phase3, phase4
+from .phases import phase0, phase1, phase2, phase3, phase4, phase5
 from .report import Report
 
 
@@ -12,8 +12,9 @@ def main() -> None:
 
     df = load_reports()
     report = Report("Le Bureau d'Analyse Terrestre - Rapport")
-    phase3_result, _split, _torch_result = phase3(df)
-    for result in [phase0(df), phase1(df), phase2(df), phase3_result, phase4(_torch_result)]:
+    phase3_result, split, torch_result = phase3(df)
+    phase5_result, fast_result = phase5(split, torch_result)
+    for result in [phase0(df), phase1(df), phase2(df), phase3_result, phase4(torch_result), phase5_result]:
         report.add(result.heading, result.markdown)
         print(f"[ok] {result.heading}")
     report.write(REPORT_PATH)

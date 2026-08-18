@@ -8,7 +8,7 @@ import numpy as np
 from .config import FIGURE_DIR
 from .models import majority_accuracy, overfit_eight, train_linear_baseline, train_torch_bow
 from .plots import save_annual_counts
-from .plots import save_loss_curves
+from .plots import save_loss_curves, save_time_curves
 from .text import clean_shape_rows, prepare_shape_dataset
 
 
@@ -226,3 +226,37 @@ nul. Signature : perte figée. Test minute : afficher la norme des gradients apr
 `{paths[2].relative_to(FIGURE_DIR.parents[1])}`.
 """
     return PhaseResult("Phase 4 - Carnet de pannes", markdown)
+
+
+def phase5(split, phase3_torch):
+    faster = train_torch_bow(
+        split,
+        epochs=5,
+        batch_size=256,
+        max_features=3500,
+    )
+    old_x = list(np.linspace(0, phase3_torch.elapsed, len(phase3_torch.history["validation"])))
+    new_x = list(np.linspace(0, faster.elapsed, len(faster.history["validation"])))
+    path = FIGURE_DIR / "phase5_budget_temps.png"
+    save_time_curves(
+        {
+            "phase 3": (old_x, phase3_torch.history["validation"]),
+            "réglage économique": (new_x, faster.history["validation"]),
+        },
+        path,
+        "Phase 5 - perte validation par temps écoulé",
+    )
+    factor = phase3_torch.elapsed / max(faster.elapsed, 1e-9)
+    markdown = f"""
+Temps phase 3 : **{phase3_torch.elapsed:.2f} s**. Temps réglage économique : **{faster.elapsed:.2f} s**.
+Facteur de gain : **{factor:.2f}x**.
+
+Score phase 3 : **{phase3_torch.accuracy:.3f}**. Score économique : **{faster.accuracy:.3f}**.
+
+Réglages touchés et mesurés : vocabulaire réduit, lots plus grands, moins de passages sur les données. Le
+gain vient surtout de la réduction du nombre de colonnes d'entrée ; aller trop vite finit par coûter plus cher
+si le vocabulaire devient trop pauvre et oblige à refaire des entraînements.
+
+Figure : `{path.relative_to(FIGURE_DIR.parents[1])}`.
+"""
+    return PhaseResult("Phase 5 - Budget de calcul", markdown), faster
