@@ -1,0 +1,33 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+
+
+def save_annual_counts(year_counts, path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig, ax = plt.subplots(figsize=(10, 4))
+    year_counts.plot(ax=ax, marker="o", linewidth=1.8)
+    ax.set_title("Volume annuel de relevés")
+    ax.set_xlabel("Année d'observation")
+    ax.set_ylabel("Nombre de relevés")
+    ax.grid(True, alpha=0.25)
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+
+
+def save_loss_curves(history: dict[str, list[float]], path: Path, title: str, x_label: str = "Itération") -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig, ax = plt.subplots(figsize=(8, 4))
+    for label, values in history.items():
+        ax.plot(values, label=label, linewidth=1.8)
+    ax.set_title(title)
+    ax.set_xlabel(x_label)
+    ax.set_ylabel("Perte")
+    ax.grid(True, alpha=0.25)
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)

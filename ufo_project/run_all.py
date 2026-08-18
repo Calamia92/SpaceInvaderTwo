@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .config import FIGURE_DIR, OUTPUT_DIR, REPORT_PATH
 from .data import load_reports
+from .phases import phase0
 from .report import Report
 
 
@@ -11,10 +12,9 @@ def main() -> None:
 
     df = load_reports()
     report = Report("Le Bureau d'Analyse Terrestre - Rapport")
-    report.add(
-        "Etat initial",
-        f"Transmission chargee : {len(df)} releves. Les phases seront ajoutees une par une.",
-    )
+    for result in [phase0(df)]:
+        report.add(result.heading, result.markdown)
+        print(f"[ok] {result.heading}")
     report.write(REPORT_PATH)
 
     print(f"Transmission chargee : {len(df)} releves")
