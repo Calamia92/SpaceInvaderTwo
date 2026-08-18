@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from .config import FIGURE_DIR, OUTPUT_DIR, REPORT_PATH
 from .data import load_reports
-from .phases import phase0, phase1, phase2, phase3, phase4, phase5, phase6
+from .phases import phase0, phase1, phase2, phase3, phase4, phase5, phase6, phase7
 from .report import Report
 
 
@@ -22,6 +22,7 @@ def main() -> None:
         phase4(torch_result),
         phase5_result,
         phase6(split, fast_result),
+        phase7(split, fast_result),
     ]:
         report.add(result.heading, result.markdown)
         print(f"[ok] {result.heading}")

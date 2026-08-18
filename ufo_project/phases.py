@@ -296,3 +296,51 @@ d'entrée change : **{output_changed}**.
 Score du montage défendu : **{torch_result.accuracy:.3f}**.
 """
     return PhaseResult("Phase 6 - Champ de vision du modèle", markdown)
+
+
+def phase7(split, phase6_result) -> PhaseResult:
+    before = train_torch_bow(
+        split,
+        epochs=5,
+        batch_size=4,
+        max_features=3500,
+        use_batch_norm=True,
+    )
+    corrected_batch4 = train_torch_bow(
+        split,
+        epochs=5,
+        batch_size=4,
+        max_features=3500,
+        use_batch_norm=False,
+    )
+    corrected_normal = train_torch_bow(
+        split,
+        epochs=5,
+        batch_size=256,
+        max_features=3500,
+        use_batch_norm=False,
+    )
+    path = FIGURE_DIR / "phase7_batch4_correction.png"
+    save_loss_curves(
+        {
+            "batch 4 avant correction": before.history["validation"],
+            "batch 4 corrigé": corrected_batch4.history["validation"],
+            "batch normal corrigé": corrected_normal.history["validation"],
+        },
+        path,
+        "Phase 7 - batch 4 avant/après correction",
+    )
+    markdown = f"""
+Score phase 6 défendu : **{phase6_result.accuracy:.3f}**.
+Score batch 4 avant correction : **{before.accuracy:.3f}**.
+Score batch 4 corrigé : **{corrected_batch4.accuracy:.3f}**.
+Score batch normal corrigé : **{corrected_normal.accuracy:.3f}**.
+
+Dans l'ancien montage, `BatchNorm1d` calculait des statistiques dépendantes des autres relevés du lot. Cette
+dépendance n'aurait jamais dû exister pour une prédiction sur un témoignage isolé. Avec l'ancien montage,
+prédire sur un seul relevé devient fragile parce que le résultat dépend des statistiques apprises ou du contexte
+de lot ; la correction supprime cette dépendance.
+
+Figure : `{path.relative_to(FIGURE_DIR.parents[1])}`.
+"""
+    return PhaseResult("Phase 7 - Quatre relevés à la fois", markdown)

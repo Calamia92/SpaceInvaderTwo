@@ -57,14 +57,13 @@ def train_linear_baseline(split, *, epochs: int = 5, max_features: int = 4000) -
 
 
 class BowMlp(nn.Module):
-    def __init__(self, input_dim: int, output_dim: int) -> None:
+    def __init__(self, input_dim: int, output_dim: int, *, use_batch_norm: bool = False) -> None:
         super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(input_dim, 192),
-            nn.ReLU(),
-            nn.Dropout(0.25),
-            nn.Linear(192, output_dim),
-        )
+        layers: list[nn.Module] = [nn.Linear(input_dim, 192)]
+        if use_batch_norm:
+            layers.append(nn.BatchNorm1d(192))
+        layers.extend([nn.ReLU(), nn.Dropout(0.25), nn.Linear(192, output_dim)])
+        self.net = nn.Sequential(*layers)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.net(x)
@@ -83,7 +82,14 @@ def predict_torch(result: ClassifierResult, texts) -> np.ndarray:
         return model(x).argmax(dim=1).numpy()
 
 
-def train_torch_bow(split, *, epochs: int = 8, batch_size: int = 128, max_features: int = 6000) -> ClassifierResult:
+def train_torch_bow(
+    split,
+    *,
+    epochs: int = 8,
+    batch_size: int = 128,
+    max_features: int = 6000,
+    use_batch_norm: bool = False,
+) -> ClassifierResult:
     started = time.perf_counter()
     vectorizer = CountVectorizer(max_features=max_features, ngram_range=(1, 2), min_df=2)
     vectorizer.fit(split.train["comments"])
@@ -93,7 +99,7 @@ def train_torch_bow(split, *, epochs: int = 8, batch_size: int = 128, max_featur
     y_valid = torch.tensor(_labels(split.valid["shape"], split.classes), dtype=torch.long)
 
     torch.manual_seed(SEED)
-    model = BowMlp(x_train.shape[1], len(split.classes))
+    model = BowMlp(x_train.shape[1], len(split.classes), use_batch_norm=use_batch_norm)
     optimiser = torch.optim.AdamW(model.parameters(), lr=2e-3, weight_decay=1e-4)
     criterion = nn.CrossEntropyLoss()
     loader = DataLoader(TensorDataset(x_train, y_train), batch_size=batch_size, shuffle=True)
