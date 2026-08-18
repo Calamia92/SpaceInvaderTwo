@@ -1,0 +1,16 @@
+info/
+infos/
+.venv/
+.idea/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+data/
+outputs/
+models/
+*.pt
+*.pth
+*.onnx
+*.safetensors
+.env
