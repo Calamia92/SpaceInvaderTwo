@@ -5,10 +5,10 @@ from dataclasses import dataclass
 import pandas as pd
 
 from .config import FIGURE_DIR
-from .models import overfit_eight
+from .models import majority_accuracy, overfit_eight, train_linear_baseline, train_torch_bow
 from .plots import save_annual_counts
 from .plots import save_loss_curves
-from .text import clean_shape_rows
+from .text import clean_shape_rows, prepare_shape_dataset
 
 
 @dataclass
@@ -148,3 +148,39 @@ Ce test prouve que la chaîne `comments -> nombres -> réseau -> shape` peut pro
 des exemples. Il ne prouve absolument pas que le modèle généralise sur la transmission entière.
 """
     return PhaseResult("Phase 2 - Test d'acceptation du Bureau", markdown)
+
+
+def phase3(df: pd.DataFrame):
+    split = prepare_shape_dataset(df)
+    linear = train_linear_baseline(split)
+    torch_result = train_torch_bow(split)
+    majority = majority_accuracy(split.valid)
+
+    linear_path = FIGURE_DIR / "phase3_lineaire_pertes.png"
+    torch_path = FIGURE_DIR / "phase3_torch_pertes.png"
+    save_loss_curves(linear.history, linear_path, "Phase 3 - modèle linéaire")
+    save_loss_curves(torch_result.history, torch_path, "Phase 3 - modèle PyTorch")
+
+    scores = pd.DataFrame(
+        [
+            {"modèle": "majoritaire", "accuracy_validation": majority, "temps_s": 0.0},
+            {"modèle": "linéaire comptage mots", "accuracy_validation": linear.accuracy, "temps_s": linear.elapsed},
+            {"modèle": "PyTorch MLP ngrammes", "accuracy_validation": torch_result.accuracy, "temps_s": torch_result.elapsed},
+        ]
+    )
+    markdown = f"""
+Décisions de fabrication du jeu : {split.decisions}
+
+Nombre de classes retenues : **{len(split.classes)}**. Nombre de relevés gardés : **{split.kept_rows}**.
+
+Scores côte à côte :
+
+{scores.to_markdown(index=False)}
+
+Figures : `{linear_path.relative_to(FIGURE_DIR.parents[1])}` et `{torch_path.relative_to(FIGURE_DIR.parents[1])}`.
+
+Entre le texte brut d'un témoin et le premier nombre du réseau, `CountVectorizer` découpe le texte en mots,
+apprend un vocabulaire sur l'entraînement, compte les mots et bigrammes présents, puis fournit un vecteur de
+comptages au réseau PyTorch.
+"""
+    return PhaseResult("Phase 3 - Battre le service statistique", markdown), split, torch_result
