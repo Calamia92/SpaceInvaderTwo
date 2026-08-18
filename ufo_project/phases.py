@@ -6,7 +6,14 @@ import pandas as pd
 import numpy as np
 
 from .config import FIGURE_DIR
-from .models import majority_accuracy, overfit_eight, predict_torch, train_linear_baseline, train_torch_bow
+from .models import (
+    majority_accuracy,
+    overfit_eight,
+    predict_torch,
+    saliency_for_text,
+    train_linear_baseline,
+    train_torch_bow,
+)
 from .plots import save_annual_counts
 from .plots import save_loss_curves, save_time_curves
 from .text import (
@@ -401,3 +408,36 @@ est plus sévère pour les petites classes : elle rend visibles les effondrement
 masquer.
 """
     return PhaseResult("Phase 8 - Interdire le vocabulaire des formes", markdown), cleaned_split, after
+
+
+def phase9(split, phase8_result) -> PhaseResult:
+    pred_ids = predict_torch(phase8_result, split.valid["comments"])
+    pred_labels = np.array([phase8_result.class_labels[index] for index in pred_ids])
+    valid = split.valid.copy()
+    valid["prediction"] = pred_labels
+
+    cases = [
+        ("réussi", valid[valid["shape"] == valid["prediction"]].head(1)),
+        ("raté", valid[valid["shape"] != valid["prediction"]].head(1)),
+        ("hésitation proche", valid.head(1)),
+    ]
+
+    blocks = []
+    for title, frame in cases:
+        if frame.empty:
+            continue
+        row = frame.iloc[0]
+        saliency = saliency_for_text(phase8_result, row["comments"])
+        salient_text = ", ".join(f"{word}={score:.3f}" for word, score in saliency)
+        blocks.append(
+            f"### Cas {title}\n\n"
+            f"Vrai : `{row['shape']}`. Prédit : `{row['prediction']}`.\n\n"
+            f"Témoignage : {row['comments']}\n\n"
+            f"Mots ou ngrammes qui ont le plus pesé : {salient_text}\n\n"
+            "Ce que la machine retient : des indices lexicaux courts encore présents après interdiction des noms de formes. "
+            "Ce qu'elle ignore souvent : l'ordre narratif complet et les nuances humaines du témoignage tronqué. "
+            "Le raté apprend surtout que le jeu mélange descriptions physiques, incertitude et vocabulaire de comparaison."
+        )
+
+    markdown = "\n\n".join(blocks)
+    return PhaseResult("Phase 9 - Rendre des comptes sur trois décisions", markdown)

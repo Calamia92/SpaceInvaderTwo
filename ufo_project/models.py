@@ -82,6 +82,23 @@ def predict_torch(result: ClassifierResult, texts) -> np.ndarray:
         return model(x).argmax(dim=1).numpy()
 
 
+def saliency_for_text(result: ClassifierResult, text: str) -> list[tuple[str, float]]:
+    model = result.model
+    assert isinstance(model, nn.Module)
+    model.eval()
+    x = _dense_counts(result.vectorizer, [text])
+    x.requires_grad_(True)
+    logits = model(x)
+    predicted = int(logits.argmax(dim=1).item())
+    logits[0, predicted].backward()
+
+    weights = x.grad.detach().abs()[0].numpy() * x.detach()[0].numpy()
+    feature_names = np.array(result.vectorizer.get_feature_names_out())
+    non_zero = np.where(weights > 0)[0]
+    ranked = sorted(((feature_names[i], float(weights[i])) for i in non_zero), key=lambda item: item[1], reverse=True)
+    return ranked[:12]
+
+
 def train_torch_bow(
     split,
     *,
