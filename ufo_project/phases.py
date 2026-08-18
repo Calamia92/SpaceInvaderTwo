@@ -5,7 +5,10 @@ from dataclasses import dataclass
 import pandas as pd
 
 from .config import FIGURE_DIR
+from .models import overfit_eight
 from .plots import save_annual_counts
+from .plots import save_loss_curves
+from .text import clean_shape_rows
 
 
 @dataclass
@@ -113,3 +116,35 @@ témoignage ?* Un comptage de dates ne peut pas répondre à cette question, par
 des témoins.
 """
     return PhaseResult("Phase 1 - Le chiffre était vrai, la flotte est perdue", markdown)
+
+
+def phase2(df: pd.DataFrame) -> PhaseResult:
+    work = clean_shape_rows(df)
+    rows = work.groupby("shape", group_keys=False).head(1).head(8).copy()
+    if len(rows) < 8:
+        rows = work.head(8).copy()
+
+    history, predictions, iterations = overfit_eight(rows)
+    loss_path = FIGURE_DIR / "phase2_surapprentissage_8.png"
+    save_loss_curves(history, loss_path, "Phase 2 - perte sur 8 relevés")
+
+    result_table = pd.DataFrame(
+        {
+            "commentaire": rows["comments"].str.slice(0, 80),
+            "vraie_forme": rows["shape"].tolist(),
+            "prediction_finale": predictions,
+        }
+    )
+    correct = int((rows["shape"].to_numpy() == predictions).sum())
+    markdown = f"""
+Le montage reçoit 8 relevés et doit les apprendre par coeur. Résultat final : **{correct}/8** prédictions
+justes après **{iterations} itérations**.
+
+Figure : `{loss_path.relative_to(FIGURE_DIR.parents[1])}`.
+
+{result_table.to_markdown(index=False)}
+
+Ce test prouve que la chaîne `comments -> nombres -> réseau -> shape` peut propager un signal et mémoriser
+des exemples. Il ne prouve absolument pas que le modèle généralise sur la transmission entière.
+"""
+    return PhaseResult("Phase 2 - Test d'acceptation du Bureau", markdown)
