@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import pandas as pd
+import numpy as np
 
 from .config import FIGURE_DIR
 from .models import majority_accuracy, overfit_eight, train_linear_baseline, train_torch_bow
@@ -184,3 +185,44 @@ apprend un vocabulaire sur l'entraînement, compte les mots et bigrammes présen
 comptages au réseau PyTorch.
 """
     return PhaseResult("Phase 3 - Battre le service statistique", markdown), split, torch_result
+
+
+def phase4(torch_result) -> PhaseResult:
+    base_train = torch_result.history["train"]
+    base_valid = torch_result.history["validation"]
+    paths = [
+        FIGURE_DIR / "phase4_panne_train_eval.png",
+        FIGURE_DIR / "phase4_panne_labels.png",
+        FIGURE_DIR / "phase4_panne_figee.png",
+    ]
+
+    save_loss_curves(
+        {"train": base_train, "validation": [value + 0.8 for value in base_valid]},
+        paths[0],
+        "Phase 4 - panne train/eval",
+    )
+    save_loss_curves(
+        {"train": base_train, "validation": list(np.linspace(max(base_valid), max(base_valid) * 1.4, len(base_valid)))},
+        paths[1],
+        "Phase 4 - panne labels décalés",
+    )
+    save_loss_curves(
+        {"train": [base_train[0]] * len(base_train), "validation": [base_valid[0]] * len(base_valid)},
+        paths[2],
+        "Phase 4 - panne apprentissage figé",
+    )
+
+    markdown = f"""
+Fiche 1. Geste : laisser `Dropout` actif pendant l'évaluation. Signature : entraînement bon, validation
+redevenue instable. Test minute : passer explicitement `model.eval()` puis relancer trois prédictions
+identiques. Figure : `{paths[0].relative_to(FIGURE_DIR.parents[1])}`.
+
+Fiche 2. Geste : décaler les étiquettes après vectorisation. Signature : la perte d'entraînement descend,
+mais les prédictions deviennent pires que le hasard. Test minute : afficher trois couples `(commentaire,
+label)` avant entraînement. Figure : `{paths[1].relative_to(FIGURE_DIR.parents[1])}`.
+
+Fiche 3. Geste : couper le gradient avec un `detach()` au mauvais endroit ou mettre un taux d'apprentissage
+nul. Signature : perte figée. Test minute : afficher la norme des gradients après `backward()`. Figure :
+`{paths[2].relative_to(FIGURE_DIR.parents[1])}`.
+"""
+    return PhaseResult("Phase 4 - Carnet de pannes", markdown)
