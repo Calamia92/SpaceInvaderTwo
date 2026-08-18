@@ -5,6 +5,7 @@ from dataclasses import dataclass, replace
 import pandas as pd
 import numpy as np
 
+from .attention import attention_forward, embed_tokens
 from .config import FIGURE_DIR
 from .models import (
     majority_accuracy,
@@ -15,7 +16,7 @@ from .models import (
     train_torch_bow,
 )
 from .plots import save_annual_counts
-from .plots import save_loss_curves, save_time_curves
+from .plots import save_heatmap, save_loss_curves, save_time_curves
 from .text import (
     banned_shape_words,
     clean_shape_rows,
@@ -441,3 +442,43 @@ def phase9(split, phase8_result) -> PhaseResult:
 
     markdown = "\n\n".join(blocks)
     return PhaseResult("Phase 9 - Rendre des comptes sur trois décisions", markdown)
+
+
+def _attention_record(df: pd.DataFrame) -> tuple[pd.Series, list[str]]:
+    pronouns = [" it ", " they ", " them ", " he ", " she "]
+    candidates = df[df["comments"].str.len().between(40, 130)].copy()
+    for pronoun in pronouns:
+        hit = candidates[candidates["comments"].str.lower().str.contains(pronoun, regex=False)]
+        if not hit.empty:
+            row = hit.iloc[0]
+            return row, tokenize(row["comments"])[:18]
+    row = candidates.iloc[0]
+    return row, tokenize(row["comments"])[:18]
+
+
+def phase10(df: pd.DataFrame) -> PhaseResult:
+    row, tokens = _attention_record(df)
+    x = embed_tokens(tokens, dim=24)
+    output, weights = attention_forward(x)
+    row_sums = weights.sum(axis=1)
+    path = FIGURE_DIR / "phase10_attention_matrice.png"
+    save_heatmap(weights, tokens, path, "Phase 10 - matrice d'attention")
+
+    weights_table = pd.DataFrame(weights, index=tokens, columns=tokens).round(3)
+    markdown = f"""
+Relevé réel utilisé : {row['comments']}
+
+Nombre de jetons : **{len(tokens)}**. Forme entrée : **{x.shape}**. Forme sortie : **{output.shape}**.
+Chaque ligne de la matrice somme entre **{row_sums.min():.6f}** et **{row_sums.max():.6f}**.
+
+Les lignes sont les mots qui posent une question ; les colonnes sont les mots consultés. Pour un pronom, la
+case à lire est donc sur la ligne du pronom et la colonne du mot auquel on pense qu'il se rattache. Le modèle
+n'est pas entraîné : on vérifie ici le calcul, pas la qualité linguistique.
+
+Figure : `{path.relative_to(FIGURE_DIR.parents[1])}`.
+
+Matrice arrondie :
+
+{weights_table.to_markdown()}
+"""
+    return PhaseResult("Phase 10 - L'attention au tableau", markdown)

@@ -46,3 +46,19 @@ def save_time_curves(curves: dict[str, tuple[list[float], list[float]]], path: P
     fig.tight_layout()
     fig.savefig(path, dpi=150)
     plt.close(fig)
+
+
+def save_heatmap(matrix, labels: list[str], path: Path, title: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig_size = max(6, min(14, len(labels) * 0.55))
+    fig, ax = plt.subplots(figsize=(fig_size, fig_size))
+    image = ax.imshow(matrix, cmap="viridis", vmin=0)
+    ax.set_title(title)
+    ax.set_xticks(range(len(labels)))
+    ax.set_yticks(range(len(labels)))
+    ax.set_xticklabels(labels, rotation=70, ha="right")
+    ax.set_yticklabels(labels)
+    fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04)
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
