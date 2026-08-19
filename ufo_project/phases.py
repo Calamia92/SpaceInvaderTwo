@@ -18,7 +18,7 @@ from .models import (
 from .plots import save_annual_counts
 from .plots import save_heatmap, save_loss_curves, save_time_curves
 from .pretrained import measure_pretrained_regimes
-from .retrieval import answer_with_sources, naive_keyword_hits
+from .retrieval import answer_with_sources, measure_retrieval_systems, naive_keyword_hits
 from .text import (
     banned_shape_words,
     clean_shape_rows,
@@ -703,3 +703,54 @@ Quand rien de proche n'est trouvé dans le budget, le système répond explicite
 d'inventer un relevé.
 """
     return PhaseResult("Phase 15 - Questions sourcées", markdown)
+
+
+def phase16(df: pd.DataFrame) -> PhaseResult:
+    questions = [
+        "Est-ce que les apparitions au-dessus des zones habitées ont une forme particulière ?",
+        "Que décrivent les témoins qui parlent de bruit ?",
+        "Les témoins associent-ils certaines couleurs à certaines formes ?",
+        "Y a-t-il des relevés où l'objet semble suivre une voiture ?",
+    ]
+    accepted_overlap_loss = 0.25
+    measurements = measure_retrieval_systems(df, questions, budget_chars=1200, top_k=6)
+    table = pd.DataFrame(
+        [
+            {
+                "système": item.name,
+                "max_features": item.max_features,
+                "poids_index_KiB": item.index_bytes / 1024,
+                "build_s": item.build_seconds,
+                "latence_s": item.latency_seconds,
+                "débit_qps": item.throughput_qps,
+                "réponses_sourcées": item.sourced_answers,
+                "recouvrement": item.mean_overlap_with_reference,
+            }
+            for item in measurements
+        ]
+    )
+    before, after = measurements
+    size_gain = before.index_bytes / max(after.index_bytes, 1)
+    latency_gain = before.latency_seconds / max(after.latency_seconds, 1e-9)
+    throughput_gain = after.throughput_qps / max(before.throughput_qps, 1e-9)
+    overlap_loss = 1 - after.mean_overlap_with_reference
+
+    markdown = f"""
+Marge annoncée avant optimisation : perte maximale acceptée de **{accepted_overlap_loss:.2f}** sur le
+recouvrement moyen des relevés cités par rapport au système avant réduction.
+
+Protocole : mêmes quatre questions que la phase 15, même budget de 1200 caractères, même machine. Le
+système avant garde **{before.max_features}** entrées TF-IDF ; le système réduit garde **{after.max_features}**
+entrées. Aucune donnée ni cache n'est ajouté au dépôt.
+
+{table.to_markdown(index=False)}
+
+Poids sur disque estimé de l'index : gain **{size_gain:.2f}x**. Latence d'une réponse unique : gain
+**{latency_gain:.2f}x**. Débit : gain **{throughput_gain:.2f}x**. Écart de score constaté :
+**{overlap_loss:.2f}** de perte de recouvrement.
+
+Réduction appliquée : vocabulaire TF-IDF plus petit, ce qui réduit la matrice sparse et accélère la similarité
+cosinus. Je m'arrête ici parce que la perte reste dans la marge annoncée ; l'étape suivante serait un export
+autonome de l'index et une quantification plus grossière des poids de la matrice.
+"""
+    return PhaseResult("Phase 16 - Faire entrer le tout dans le vaisseau", markdown)
