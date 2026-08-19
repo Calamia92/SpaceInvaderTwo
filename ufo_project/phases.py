@@ -174,10 +174,15 @@ des exemples. Il ne prouve absolument pas que le modèle généralise sur la tra
     return PhaseResult("Phase 2 - Test d'acceptation du Bureau", markdown)
 
 
-def phase3(df: pd.DataFrame):
-    split = prepare_shape_dataset(df)
-    linear = train_linear_baseline(split)
-    torch_result = train_torch_bow(split)
+def phase3(df: pd.DataFrame, *, quick: bool = False):
+    split = prepare_shape_dataset(df, quick=quick)
+    linear = train_linear_baseline(split, epochs=3 if quick else 5, max_features=1800 if quick else 4000)
+    torch_result = train_torch_bow(
+        split,
+        epochs=3 if quick else 8,
+        batch_size=64 if quick else 128,
+        max_features=2200 if quick else 6000,
+    )
     majority = majority_accuracy(split.valid)
 
     linear_path = FIGURE_DIR / "phase3_lineaire_pertes.png"
@@ -251,12 +256,12 @@ nul. Signature : perte figée. Test minute : afficher la norme des gradients apr
     return PhaseResult("Phase 4 - Carnet de pannes", markdown)
 
 
-def phase5(split, phase3_torch):
+def phase5(split, phase3_torch, *, quick: bool = False):
     faster = train_torch_bow(
         split,
-        epochs=5,
-        batch_size=256,
-        max_features=3500,
+        epochs=2 if quick else 5,
+        batch_size=128 if quick else 256,
+        max_features=1600 if quick else 3500,
     )
     old_x = list(np.linspace(0, phase3_torch.elapsed, len(phase3_torch.history["validation"])))
     new_x = list(np.linspace(0, faster.elapsed, len(faster.history["validation"])))
@@ -321,26 +326,26 @@ Score du montage défendu : **{torch_result.accuracy:.3f}**.
     return PhaseResult("Phase 6 - Champ de vision du modèle", markdown)
 
 
-def phase7(split, phase6_result) -> PhaseResult:
+def phase7(split, phase6_result, *, quick: bool = False) -> PhaseResult:
     before = train_torch_bow(
         split,
-        epochs=5,
+        epochs=1 if quick else 5,
         batch_size=4,
-        max_features=3500,
+        max_features=1400 if quick else 3500,
         use_batch_norm=True,
     )
     corrected_batch4 = train_torch_bow(
         split,
-        epochs=5,
+        epochs=1 if quick else 5,
         batch_size=4,
-        max_features=3500,
+        max_features=1400 if quick else 3500,
         use_batch_norm=False,
     )
     corrected_normal = train_torch_bow(
         split,
-        epochs=5,
-        batch_size=256,
-        max_features=3500,
+        epochs=1 if quick else 5,
+        batch_size=128 if quick else 256,
+        max_features=1400 if quick else 3500,
         use_batch_norm=False,
     )
     path = FIGURE_DIR / "phase7_batch4_correction.png"
@@ -369,7 +374,7 @@ Figure : `{path.relative_to(FIGURE_DIR.parents[1])}`.
     return PhaseResult("Phase 7 - Quatre relevés à la fois", markdown)
 
 
-def phase8(split, before_result):
+def phase8(split, before_result, *, quick: bool = False):
     banned = banned_shape_words(split.classes)
     cleaned_split = replace(split)
     for frame_name in ["train", "valid", "test"]:
@@ -379,7 +384,12 @@ def phase8(split, before_result):
 
     checked_texts = cleaned_split.train["comments"].tolist() + cleaned_split.valid["comments"].tolist()
     remaining = count_rows_with_banned_words(checked_texts, banned)
-    after = train_torch_bow(cleaned_split, epochs=5, batch_size=256, max_features=3500)
+    after = train_torch_bow(
+        cleaned_split,
+        epochs=2 if quick else 5,
+        batch_size=128 if quick else 256,
+        max_features=1600 if quick else 3500,
+    )
 
     before_pred_ids = predict_torch(before_result, split.valid["comments"])
     after_pred_ids = predict_torch(after, cleaned_split.valid["comments"])

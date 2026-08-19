@@ -49,11 +49,19 @@ def prepare_shape_dataset(
     min_class_count: int = 300,
     keep_fourre_tout: bool = False,
     random_state: int = 7,
+    quick: bool = False,
 ) -> DatasetSplit:
     work = clean_shape_rows(df, keep_fourre_tout=keep_fourre_tout)
     counts = work["shape"].value_counts()
     allowed = counts[counts >= min_class_count].index
     work = work[work["shape"].isin(allowed)].reset_index(drop=True)
+    if quick:
+        per_class = min(80, int(work["shape"].value_counts().min()))
+        work = (
+            work.groupby("shape", group_keys=False)
+            .sample(n=per_class, random_state=random_state)
+            .reset_index(drop=True)
+        )
 
     classes = sorted(work["shape"].unique())
     train_valid, test = train_test_split(

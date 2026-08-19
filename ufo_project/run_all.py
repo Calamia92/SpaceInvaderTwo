@@ -11,6 +11,7 @@ from .report import Report
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Rejoue le projet UFO de bout en bout.")
     parser.add_argument("--with-pretrained", action="store_true", help="Télécharge et mesure le petit modèle préentraîné de la phase 14.")
+    parser.add_argument("--quick", action="store_true", help="Utilise une découpe réduite pour valider rapidement les phases d'apprentissage.")
     return parser.parse_args()
 
 
@@ -20,10 +21,12 @@ def main() -> None:
     FIGURE_DIR.mkdir(parents=True, exist_ok=True)
 
     df = load_reports()
+    if args.quick:
+        print("Mode rapide actif : les phases d'apprentissage utilisent une découpe réduite.")
     report = Report("Le Bureau d'Analyse Terrestre - Rapport")
-    phase3_result, split, torch_result = phase3(df)
-    phase5_result, fast_result = phase5(split, torch_result)
-    phase8_result, cleaned_split, banned_result = phase8(split, fast_result)
+    phase3_result, split, torch_result = phase3(df, quick=args.quick)
+    phase5_result, fast_result = phase5(split, torch_result, quick=args.quick)
+    phase8_result, cleaned_split, banned_result = phase8(split, fast_result, quick=args.quick)
     for result in [
         phase0(df),
         phase1(df),
@@ -32,7 +35,7 @@ def main() -> None:
         phase4(torch_result),
         phase5_result,
         phase6(split, fast_result),
-        phase7(split, fast_result),
+        phase7(split, fast_result, quick=args.quick),
         phase8_result,
         phase9(cleaned_split, banned_result),
         phase10(df),
