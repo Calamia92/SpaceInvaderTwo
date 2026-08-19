@@ -4,7 +4,7 @@ import argparse
 
 from .config import FIGURE_DIR, OUTPUT_DIR, REPORT_PATH
 from .data import load_reports
-from .phases import phase0, phase1, phase2, phase3, phase4, phase5, phase6, phase7, phase8, phase9, phase10, phase11, phase12, phase13, phase14, phase15, phase16
+from .phases import phase0, phase1, phase2, phase3, phase4, phase5, phase6, phase7, phase8, phase9, phase10, phase11, phase12, phase13, phase14, phase15, phase16, phase17
 from .report import Report
 
 
@@ -42,6 +42,7 @@ def main() -> None:
         phase14(banned_result, with_pretrained=args.with_pretrained),
         phase15(df),
         phase16(df),
+        phase17(df),
     ]:
         report.add(result.heading, result.markdown)
         print(f"[ok] {result.heading}")

@@ -18,7 +18,13 @@ from .models import (
 from .plots import save_annual_counts
 from .plots import save_heatmap, save_loss_curves, save_time_curves
 from .pretrained import measure_pretrained_regimes
-from .retrieval import answer_with_sources, measure_retrieval_systems, naive_keyword_hits
+from .retrieval import (
+    answer_with_sources,
+    markov_fake_comment,
+    markov_state_signature,
+    measure_retrieval_systems,
+    naive_keyword_hits,
+)
 from .text import (
     banned_shape_words,
     clean_shape_rows,
@@ -754,3 +760,40 @@ cosinus. Je m'arrête ici parce que la perte reste dans la marge annoncée ; l'�
 autonome de l'index et une quantification plus grossière des poids de la matrice.
 """
     return PhaseResult("Phase 16 - Faire entrer le tout dans le vaisseau", markdown)
+
+
+def phase17(df: pd.DataFrame) -> PhaseResult:
+    comments = df["comments"].dropna().astype(str)
+    style_sample = comments[comments.str.len().between(35, 135)].sample(n=min(1000, len(comments)), random_state=17)
+    before_signature = markov_state_signature(style_sample)
+    settings = [
+        {"température": 0.2, "symptôme": "texte propre mais répétitif", "sortie": markov_fake_comment(style_sample, temperature=0.2, seed=17)},
+        {"température": 1.6, "symptôme": "texte instable qui part dans tous les sens", "sortie": markov_fake_comment(style_sample, temperature=1.6, seed=18)},
+        {"température": 0.8, "symptôme": "réglage recommandé", "sortie": markov_fake_comment(style_sample, temperature=0.8, seed=19)},
+    ]
+    after_signature = markov_state_signature(style_sample)
+    table = pd.DataFrame(settings)
+    real_examples = style_sample.sample(n=4, random_state=170).to_frame(name="vrai_relevé")
+
+    markdown = f"""
+Règle absolue respectée : aucune valeur interne de modèle n'est entraînée ni ajustée. La seule action est le
+choix du prochain mot au moment d'écrire, contrôlé ici par la température d'une chaîne de Markov construite
+sur des vrais relevés courts.
+
+Signature de l'état avant génération : **{before_signature}**. Signature après génération : **{after_signature}**.
+Elles sont identiques, ce qui démontre que les transitions disponibles n'ont pas bougé entre le premier et le
+dernier essai.
+
+Grille des réglages :
+
+{table.to_markdown(index=False)}
+
+Étalon de style, vrais relevés mélangés au faux recommandé pour un futur tri en aveugle :
+
+{real_examples.to_markdown(index=False)}
+
+Réglage recommandé au Bureau : **température 0.8**. Le réglage bas répète trop vite les mêmes enchaînements ;
+le réglage haut saute entre débuts de témoignages et devient incohérent. Le point utile est au milieu, où le
+texte reste plat, court et maladroit comme les relevés, sans tourner en boucle trop visiblement.
+"""
+    return PhaseResult("Phase 17 - Le faux témoignage", markdown)

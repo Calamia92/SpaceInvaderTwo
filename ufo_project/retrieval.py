@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 import time
 from dataclasses import dataclass
 
@@ -7,6 +8,8 @@ import numpy as np
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+
+from .text import tokenize
 
 
 @dataclass
@@ -146,3 +149,41 @@ def measure_retrieval_systems(
             )
         )
     return measurements
+
+
+def markov_fake_comment(comments, *, temperature: float, seed: int, length: int = 18) -> str:
+    rng = random.Random(seed)
+    starts: list[str] = []
+    transitions: dict[str, list[str]] = {}
+    for comment in comments:
+        tokens = tokenize(comment)
+        if len(tokens) < 3:
+            continue
+        starts.append(tokens[0])
+        for left, right in zip(tokens, tokens[1:]):
+            transitions.setdefault(left, []).append(right)
+
+    current = rng.choice(starts)
+    generated = [current]
+    for _ in range(length - 1):
+        choices = transitions.get(current) or starts
+        if temperature < 0.4:
+            current = max(set(choices), key=choices.count)
+        elif temperature > 1.3 and rng.random() < min(0.6, (temperature - 1.0) / 1.2):
+            current = rng.choice(starts)
+        else:
+            current = rng.choice(choices)
+        generated.append(current)
+    return " ".join(generated)
+
+
+def markov_state_signature(comments) -> tuple[int, int]:
+    starts = 0
+    edges = 0
+    for comment in comments:
+        tokens = tokenize(comment)
+        if len(tokens) < 3:
+            continue
+        starts += 1
+        edges += max(0, len(tokens) - 1)
+    return starts, edges
