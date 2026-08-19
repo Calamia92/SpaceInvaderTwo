@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import time
 
 import numpy as np
 
@@ -43,3 +44,23 @@ def attention_forward(x: np.ndarray, seed: int = 10) -> tuple[np.ndarray, np.nda
     weights = np.exp(scores)
     weights = weights / weights.sum(axis=1, keepdims=True)
     return weights @ v, weights
+
+
+def benchmark_attention(lengths: list[int], *, dim: int = 32, repeats: int = 7) -> list[dict[str, float]]:
+    rows = []
+    rng = np.random.default_rng(12)
+    for length in lengths:
+        x = rng.normal(0, 1, (length, dim)).astype(np.float32)
+        timings = []
+        for _ in range(repeats):
+            started = time.perf_counter()
+            attention_forward(x, seed=12)
+            timings.append(time.perf_counter() - started)
+        rows.append(
+            {
+                "longueur": length,
+                "temps_s_median": float(np.median(timings)),
+                "cases_matrice": float(length * length),
+            }
+        )
+    return rows

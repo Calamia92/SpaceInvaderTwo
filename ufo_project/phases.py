@@ -5,7 +5,7 @@ from dataclasses import dataclass, replace
 import pandas as pd
 import numpy as np
 
-from .attention import attention_forward, embed_tokens
+from .attention import attention_forward, benchmark_attention, embed_tokens
 from .config import FIGURE_DIR
 from .models import (
     majority_accuracy,
@@ -522,3 +522,46 @@ phase 10 tout en donnant à chaque mot une information sur sa place.
 Figures : `{before_path.relative_to(FIGURE_DIR.parents[1])}` et `{after_path.relative_to(FIGURE_DIR.parents[1])}`.
 """
     return PhaseResult("Phase 11 - Le Conseil mélange les mots", markdown)
+
+
+def phase12() -> PhaseResult:
+    rows = benchmark_attention([32, 64, 128, 256, 512], dim=32, repeats=7)
+    table = pd.DataFrame(rows)
+    path = FIGURE_DIR / "phase12_cout_attention.png"
+
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.plot(table["longueur"], table["temps_s_median"], marker="o", linewidth=1.8)
+    ax.set_title("Phase 12 - coût de l'attention")
+    ax.set_xlabel("Longueur (jetons)")
+    ax.set_ylabel("Temps médian d'un passage avant (s)")
+    ax.grid(True, alpha=0.25)
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+
+    ratios = table["temps_s_median"].iloc[1:].to_numpy() / table["temps_s_median"].iloc[:-1].to_numpy()
+    matrix_ratios = table["cases_matrice"].iloc[1:].to_numpy() / table["cases_matrice"].iloc[:-1].to_numpy()
+    median_ratio = float(np.median(ratios))
+    median_matrix_ratio = float(np.median(matrix_ratios))
+    worst = table.iloc[-1]
+
+    markdown = f"""
+Protocole : même code d'attention que les phases 10 et 11, dimensions fixées à 32, sept passages par
+longueur, et conservation du temps médian pour éviter le tir unique.
+
+{table.to_markdown(index=False)}
+
+Quand la longueur double, le temps est multiplié par **{median_ratio:.2f}** en médiane sur ces mesures. La
+matrice des poids, elle, est multipliée par **{median_matrix_ratio:.1f}**, parce qu'elle contient
+`longueur x longueur` cases. La courbe suit donc la montée quadratique attendue, avec du bruit de mesure CPU
+sur les petites longueurs.
+
+Figure : `{path.relative_to(FIGURE_DIR.parents[1])}`.
+
+D'après ces chiffres, la machine commence à devenir inutilisable au-delà de **{int(worst['longueur'])} jetons**
+pour un traitement interactif répété : à cette taille, une seule matrice contient déjà **{int(worst['cases_matrice'])}**
+cases, et chaque doublement quadruple cette matrice.
+"""
+    return PhaseResult("Phase 12 - Le Conseil demande la facture", markdown)
