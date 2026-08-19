@@ -765,9 +765,10 @@ Poids sur disque estimé de l'index : gain **{size_gain:.2f}x**. Latence d'une r
 **{latency_gain:.2f}x**. Débit : gain **{throughput_gain:.2f}x**. Écart de score constaté :
 **{overlap_loss:.2f}** de perte de recouvrement.
 
-Réduction appliquée : vocabulaire TF-IDF plus petit, ce qui réduit la matrice sparse et accélère la similarité
-cosinus. Je m'arrête ici parce que la perte reste dans la marge annoncée ; l'étape suivante serait un export
-autonome de l'index et une quantification plus grossière des poids de la matrice.
+Réduction appliquée : vocabulaire TF-IDF plus petit, ce qui réduit la matrice sparse et accélère légèrement la
+similarité cosinus. Je m'arrête ici parce que la perte reste dans la marge annoncée ; l'étape suivante serait
+un export autonome de l'index et une quantification plus grossière des poids de la matrice pour obtenir un
+gain plus net.
 """
     return PhaseResult("Phase 16 - Faire entrer le tout dans le vaisseau", markdown)
 

@@ -90,7 +90,7 @@ def measure_retrieval_systems(
     top_k: int = 6,
 ) -> list[RetrievalSystemMeasurement]:
     work = df[df["comments"].str.strip() != ""].copy().reset_index().rename(columns={"index": "row_id"})
-    systems = [("avant", 12000), ("après", 4000)]
+    systems = [("avant", 12000), ("après", 11000)]
     reference_ids: list[set[int]] | None = None
     measurements: list[RetrievalSystemMeasurement] = []
 
