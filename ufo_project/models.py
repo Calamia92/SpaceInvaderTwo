@@ -119,7 +119,12 @@ def train_torch_bow(
     model = BowMlp(x_train.shape[1], len(split.classes), use_batch_norm=use_batch_norm)
     optimiser = torch.optim.AdamW(model.parameters(), lr=2e-3, weight_decay=1e-4)
     criterion = nn.CrossEntropyLoss()
-    loader = DataLoader(TensorDataset(x_train, y_train), batch_size=batch_size, shuffle=True)
+    loader = DataLoader(
+        TensorDataset(x_train, y_train),
+        batch_size=batch_size,
+        shuffle=True,
+        drop_last=use_batch_norm,
+    )
     history = {"train": [], "validation": []}
 
     for _ in range(epochs):
