@@ -5,7 +5,7 @@ from dataclasses import dataclass, replace
 import pandas as pd
 import numpy as np
 
-from .attention import attention_forward, benchmark_attention, embed_tokens
+from .attention import attention_forward, benchmark_attention, embed_tokens, mean_absolute_disagreement
 from .config import FIGURE_DIR
 from .models import (
     majority_accuracy,
@@ -565,3 +565,42 @@ pour un traitement interactif répété : à cette taille, une seule matrice con
 cases, et chaque doublement quadruple cette matrice.
 """
     return PhaseResult("Phase 12 - Le Conseil demande la facture", markdown)
+
+
+def phase13(df: pd.DataFrame) -> PhaseResult:
+    _, tokens = _attention_record(df)
+    x = embed_tokens(tokens, dim=24, positional=True)
+
+    output_a, weights_a = attention_forward(x, seed=13)
+    output_b, weights_b = attention_forward(x, seed=14)
+    _, weights_control = attention_forward(x, seed=13)
+    combined = np.concatenate([output_a, output_b], axis=1)
+
+    disagreement = mean_absolute_disagreement(weights_a, weights_b)
+    control_disagreement = mean_absolute_disagreement(weights_a, weights_control)
+
+    path_a = FIGURE_DIR / "phase13_tete_a.png"
+    path_b = FIGURE_DIR / "phase13_tete_b.png"
+    save_heatmap(weights_a, tokens, path_a, "Phase 13 - tête A")
+    save_heatmap(weights_b, tokens, path_b, "Phase 13 - tête B")
+
+    markdown = f"""
+Relevé utilisé : `{' '.join(tokens)}`.
+
+Deux têtes tournent en parallèle sur les mêmes vecteurs d'entrée positionnés. Chaque tête possède ses propres
+matrices de question, d'étiquette et de contenu. Leurs sorties ont les formes **{output_a.shape}** et
+**{output_b.shape}** ; la sortie recollée a la forme **{combined.shape}**.
+
+Mesure choisie : désaccord absolu moyen entre les deux matrices de poids. Elle est adaptée ici parce qu'elle
+compare directement les proportions d'attention case par case.
+
+Désaccord entre deux têtes initialisées différemment : **{disagreement:.6f}**.
+Cas de contrôle, deux têtes volontairement identiques : **{control_disagreement:.6f}**.
+
+Figures : `{path_a.relative_to(FIGURE_DIR.parents[1])}` et `{path_b.relative_to(FIGURE_DIR.parents[1])}`.
+
+Ces têtes ne sont pas entraînées ; leurs différences viennent donc de leur initialisation. Si elles étaient
+entraînées, on pourrait conclure davantage : par exemple vérifier si une tête se spécialise sur les reprises
+pronominales pendant qu'une autre suit les objets ou les couleurs.
+"""
+    return PhaseResult("Phase 13 - Deux regards sur le même relevé", markdown)

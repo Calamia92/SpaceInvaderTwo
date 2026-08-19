@@ -64,3 +64,7 @@ def benchmark_attention(lengths: list[int], *, dim: int = 32, repeats: int = 7) 
             }
         )
     return rows
+
+
+def mean_absolute_disagreement(left: np.ndarray, right: np.ndarray) -> float:
+    return float(np.mean(np.abs(left - right)))
