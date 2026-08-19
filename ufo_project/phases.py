@@ -17,6 +17,7 @@ from .models import (
 )
 from .plots import save_annual_counts
 from .plots import save_heatmap, save_loss_curves, save_time_curves
+from .pretrained import measure_pretrained_regimes
 from .text import (
     banned_shape_words,
     clean_shape_rows,
@@ -604,3 +605,52 @@ entraînées, on pourrait conclure davantage : par exemple vérifier si une têt
 pronominales pendant qu'une autre suit les objets ou les couleurs.
 """
     return PhaseResult("Phase 13 - Deux regards sur le même relevé", markdown)
+
+
+def phase14(phase8_result, *, with_pretrained: bool = False) -> PhaseResult:
+    rows = [
+        {
+            "régime": "référence phase 8",
+            "score": f"{phase8_result.accuracy:.3f}",
+            "valeurs_modifiées": "MLP local complet",
+            "temps_passage_s": f"{phase8_result.elapsed:.3f}",
+            "mémoire": "CPU non tracée",
+            "poids_sauvé": "poids du MLP local",
+            "note": "vocabulaire des formes interdit",
+        }
+    ]
+    for measurement in measure_pretrained_regimes(with_pretrained):
+        rows.append(
+            {
+                "régime": measurement.regime,
+                "score": measurement.score,
+                "valeurs_modifiées": measurement.trainable_values,
+                "temps_passage_s": measurement.train_step_seconds,
+                "mémoire": measurement.memory,
+                "poids_sauvé": measurement.saved_weight,
+                "note": measurement.note,
+            }
+        )
+    table = pd.DataFrame(rows)
+    mode_note = (
+        "Les mesures de modèle emprunté ont été tentées avec `prajjwal1/bert-tiny`."
+        if with_pretrained
+        else "Le run standard n'active pas le téléchargement du modèle ; relancer avec `--with-pretrained` pour mesurer."
+    )
+    markdown = f"""
+Point de départ : modèle de la phase 8, mêmes relevés, même interdiction du vocabulaire des formes.
+
+{table.to_markdown(index=False)}
+
+Modèle emprunté choisi : `prajjwal1/bert-tiny`, assez petit pour un CPU et récupérable librement via
+Transformers. Les trois régimes prévus sont : extracteur gelé avec une petite tête entraînée, fine-tuning
+partiel des couches proches de la sortie, et adaptateurs qui ajoutent peu de valeurs sans modifier le modèle
+de base.
+
+{mode_note}
+
+Décision actuelle : le Bureau peut se payer l'extracteur gelé ou les adaptateurs. Le fine-tuning partiel est plus
+cher en valeurs sauvegardées et en mémoire, donc il ne se justifie que si son score dépasse nettement la ligne
+de référence.
+"""
+    return PhaseResult("Phase 14 - Le cerveau emprunté, et sa facture", markdown)
