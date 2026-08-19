@@ -24,6 +24,13 @@ def main() -> None:
     if args.quick:
         print("Mode rapide actif : les phases d'apprentissage utilisent une découpe réduite.")
     report = Report("Le Bureau d'Analyse Terrestre - Rapport")
+    if args.quick:
+        report.add(
+            "Mode d'exécution",
+            "Rapport généré en mode rapide : les phases d'apprentissage utilisent une découpe réduite pour "
+            "valider la chaîne de bout en bout sur CPU. Les calculs calendaires de la phase 0 restent faits "
+            "sur toute la transmission téléchargée.",
+        )
     phase3_result, split, torch_result = phase3(df, quick=args.quick)
     phase5_result, fast_result = phase5(split, torch_result, quick=args.quick)
     phase8_result, cleaned_split, banned_result = phase8(split, fast_result, quick=args.quick)
