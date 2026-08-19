@@ -482,3 +482,43 @@ Matrice arrondie :
 {weights_table.to_markdown()}
 """
     return PhaseResult("Phase 10 - L'attention au tableau", markdown)
+
+
+def phase11(df: pd.DataFrame) -> PhaseResult:
+    _, tokens = _attention_record(df)
+    permutation = np.random.default_rng(11).permutation(len(tokens))
+    inverse = np.argsort(permutation)
+    shuffled_tokens = [tokens[index] for index in permutation]
+
+    x = embed_tokens(tokens, dim=24, positional=False)
+    output, before_weights = attention_forward(x, seed=11)
+    shuffled_output, _ = attention_forward(x[permutation], seed=11)
+    before_gap = float(np.linalg.norm(output - shuffled_output[inverse]))
+
+    x_pos = embed_tokens(tokens, dim=24, positional=True)
+    output_pos, after_weights = attention_forward(x_pos, seed=11)
+    shuffled_x_pos = embed_tokens(shuffled_tokens, dim=24, positional=True)
+    shuffled_output_pos, _ = attention_forward(shuffled_x_pos, seed=11)
+    after_gap = float(np.linalg.norm(output_pos - shuffled_output_pos[inverse]))
+
+    before_path = FIGURE_DIR / "phase11_avant_position.png"
+    after_path = FIGURE_DIR / "phase11_apres_position.png"
+    save_heatmap(before_weights, tokens, before_path, "Phase 11 - avant position")
+    save_heatmap(after_weights, tokens, after_path, "Phase 11 - après position")
+
+    markdown = f"""
+Phrase correcte : `{' '.join(tokens)}`.
+Phrase mélangée : `{' '.join(shuffled_tokens)}`.
+
+Écart entre les sorties avant correction : **{before_gap:.10f}**.
+Écart mesuré de la même façon après correction positionnelle : **{after_gap:.10f}**.
+
+Avant correction, l'attention reçoit seulement les vecteurs des mots : permuter les mots permute les sorties,
+mais chaque mot garde le même résultat quand on le remet à sa place. Le conseiller a donc raison : l'ordre
+n'est pas représenté. Après correction, une position sinusoïdale est ajoutée aux vecteurs d'entrée avant de
+fabriquer questions, étiquettes et contenus. On l'injecte là pour laisser intact le mécanisme d'attention de la
+phase 10 tout en donnant à chaque mot une information sur sa place.
+
+Figures : `{before_path.relative_to(FIGURE_DIR.parents[1])}` et `{after_path.relative_to(FIGURE_DIR.parents[1])}`.
+"""
+    return PhaseResult("Phase 11 - Le Conseil mélange les mots", markdown)

@@ -12,8 +12,20 @@ def stable_token_vector(token: str, dim: int) -> np.ndarray:
     return rng.normal(0, 1, dim).astype(np.float32)
 
 
-def embed_tokens(tokens: list[str], dim: int = 24) -> np.ndarray:
-    return np.stack([stable_token_vector(token, dim) for token in tokens])
+def sinusoidal_positions(length: int, dim: int) -> np.ndarray:
+    positions = np.arange(length)[:, None]
+    div = np.exp(np.arange(0, dim, 2) * (-np.log(10000.0) / dim))
+    values = np.zeros((length, dim), dtype=np.float32)
+    values[:, 0::2] = np.sin(positions * div)
+    values[:, 1::2] = np.cos(positions * div)
+    return values
+
+
+def embed_tokens(tokens: list[str], dim: int = 24, *, positional: bool = False) -> np.ndarray:
+    values = np.stack([stable_token_vector(token, dim) for token in tokens])
+    if positional:
+        values = values + sinusoidal_positions(len(tokens), dim)
+    return values
 
 
 def attention_forward(x: np.ndarray, seed: int = 10) -> tuple[np.ndarray, np.ndarray]:

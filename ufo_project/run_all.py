@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from .config import FIGURE_DIR, OUTPUT_DIR, REPORT_PATH
 from .data import load_reports
-from .phases import phase0, phase1, phase2, phase3, phase4, phase5, phase6, phase7, phase8, phase9, phase10
+from .phases import phase0, phase1, phase2, phase3, phase4, phase5, phase6, phase7, phase8, phase9, phase10, phase11
 from .report import Report
 
 
@@ -27,6 +27,7 @@ def main() -> None:
         phase8_result,
         phase9(cleaned_split, banned_result),
         phase10(df),
+        phase11(df),
     ]:
         report.add(result.heading, result.markdown)
         print(f"[ok] {result.heading}")
