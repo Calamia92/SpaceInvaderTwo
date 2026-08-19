@@ -18,6 +18,7 @@ from .models import (
 from .plots import save_annual_counts
 from .plots import save_heatmap, save_loss_curves, save_time_curves
 from .pretrained import measure_pretrained_regimes
+from .retrieval import answer_with_sources, naive_keyword_hits
 from .text import (
     banned_shape_words,
     clean_shape_rows,
@@ -654,3 +655,51 @@ cher en valeurs sauvegardées et en mémoire, donc il ne se justifie que si son 
 de référence.
 """
     return PhaseResult("Phase 14 - Le cerveau emprunté, et sa facture", markdown)
+
+
+def phase15(df: pd.DataFrame) -> PhaseResult:
+    questions = [
+        "Est-ce que les apparitions au-dessus des zones habitées ont une forme particulière ?",
+        "Que décrivent les témoins qui parlent de bruit ?",
+        "Les témoins associent-ils certaines couleurs à certaines formes ?",
+        "Y a-t-il des relevés où l'objet semble suivre une voiture ?",
+    ]
+    budget_chars = 1200
+    blocks = []
+    sourced = 0
+    naive_total = 0
+    for question in questions:
+        result = answer_with_sources(df, question, budget_chars=budget_chars, top_k=6)
+        sourced += int(not result.citations.empty)
+        naive_total += naive_keyword_hits(df, question, top_k=6)
+        citations = result.citations.copy()
+        if not citations.empty:
+            citations["comments"] = citations["comments"].str.slice(0, 110)
+            citations_md = citations.to_markdown(index=False)
+        else:
+            citations_md = "_Aucun relevé cité._"
+        blocks.append(
+            f"### {question}\n\n"
+            f"Réponse : {result.answer}\n\n"
+            f"Budget utilisé : **{result.used_chars}/{budget_chars} caractères**. Temps recherche : **{result.elapsed:.3f} s**.\n\n"
+            f"{citations_md}"
+        )
+
+    markdown = f"""
+Questions figées avant mesure :
+
+{chr(10).join(f'- {question}' for question in questions)}
+
+Budget de texte retenu : **{budget_chars} caractères par question**, jamais dépassé. La sélection des relevés
+est déterministe : même fichier, même question, même vectoriseur TF-IDF, mêmes citations.
+
+Proportion de réponses avec relevés cités : **{sourced}/{len(questions)}**.
+Comparaison naïve par mots présents dans la question : **{naive_total} correspondances** dans les six premiers
+relevés testés par question, sans classement sémantique.
+
+{chr(10).join(blocks)}
+
+Quand rien de proche n'est trouvé dans le budget, le système répond explicitement qu'il ne sait pas au lieu
+d'inventer un relevé.
+"""
+    return PhaseResult("Phase 15 - Questions sourcées", markdown)
